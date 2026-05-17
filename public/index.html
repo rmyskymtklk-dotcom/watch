@@ -10,7 +10,6 @@
 </head>
 <body>
 
-  <!-- ── LOBBY ── -->
   <div id="lobby">
     <div class="lobby-bg">
       <div class="grain"></div>
@@ -45,10 +44,8 @@
     </div>
   </div>
 
-  <!-- ── WATCH ROOM ── -->
   <div id="room" class="hidden">
 
-    <!-- Topbar -->
     <header class="topbar">
       <div class="topbar-left">
         <span class="logo-sm">◈ WatchParty</span>
@@ -72,10 +69,8 @@
       </div>
     </header>
 
-    <!-- Main layout -->
     <div class="main-layout">
 
-      <!-- Video panel -->
       <div class="video-panel">
         <div id="placeholder" class="placeholder">
           <div class="placeholder-inner">
@@ -83,13 +78,18 @@
             <p>Host bir film linki yükleyince burada görünecek</p>
           </div>
         </div>
-        <iframe
-          id="videoFrame"
-          class="hidden"
-          allowfullscreen
-          allow="autoplay; fullscreen; picture-in-picture"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
-        ></iframe>
+
+        <div class="video-container">
+            <iframe 
+                id="videoFrame" 
+                class="hidden"
+                src="" 
+                frameborder="0" 
+                allowfullscreen 
+                allow="autoplay; fullscreen; picture-in-picture"
+                sandbox="allow-forms allow-scripts allow-same-origin allow-presentation"
+            ></iframe>
+        </div>
         <div id="frameWarning" class="frame-warning hidden">
           ⚠️ Bu site iframe'i engelledi.
           <a id="openExternal" href="#" target="_blank">Yeni sekmede aç →</a>
@@ -98,7 +98,6 @@
         </div>
       </div>
 
-      <!-- Sidebar -->
       <aside class="sidebar">
         <div class="sidebar-header">
           <span>Yorumlar</span>

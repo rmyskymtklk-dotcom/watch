@@ -23,10 +23,6 @@ function resolveEmbedUrl(rawUrl) {
     const u = new URL(rawUrl.startsWith('http') ? rawUrl : 'https://' + rawUrl);
     const host = u.hostname.replace('www.', '');
 
-    // ── YouTube ──────────────────────────────────────────────────────
-    // https://www.youtube.com/watch?v=ID
-    // https://youtu.be/ID
-    // https://youtube.com/shorts/ID
     if (host === 'youtube.com' || host === 'youtu.be') {
       let vid = u.searchParams.get('v');
       if (!vid && host === 'youtu.be') vid = u.pathname.slice(1).split('?')[0];
@@ -39,7 +35,6 @@ function resolveEmbedUrl(rawUrl) {
       }
     }
 
-    // ── Vimeo ─────────────────────────────────────────────────────────
     if (host === 'vimeo.com') {
       const vid = u.pathname.split('/').filter(Boolean)[0];
       if (vid && /^\d+$/.test(vid)) {
@@ -47,13 +42,11 @@ function resolveEmbedUrl(rawUrl) {
       }
     }
 
-    // ── Dailymotion ───────────────────────────────────────────────────
     if (host === 'dailymotion.com') {
       const vid = u.pathname.split('/video/')[1];
       if (vid) return { type: 'embed', url: `https://www.dailymotion.com/embed/video/${vid}?autoplay=1` };
     }
 
-    // ── Diğer siteler → proxy ─────────────────────────────────────────
     return { type: 'proxy', url: rawUrl };
   } catch {
     return { type: 'proxy', url: rawUrl };
@@ -65,7 +58,6 @@ app.get('/api/resolve', (req, res) => {
   const raw = req.query.url;
   if (!raw) return res.status(400).json({ error: 'url gerekli' });
   const result = resolveEmbedUrl(raw);
-  // proxy türündeyse proxy URL'si oluştur
   if (result.type === 'proxy') {
     result.proxyUrl = '/proxy?url=' + encodeURIComponent(result.url);
   }
@@ -87,10 +79,7 @@ app.get('/proxy', async (req, res) => {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cache-Control': 'no-cache',
         'Referer': new URL(targetUrl).origin,
-        'Upgrade-Insecure-Requests': '1',
       },
     });
     clearTimeout(timer);
@@ -98,14 +87,15 @@ app.get('/proxy', async (req, res) => {
     const ct = response.headers.get('content-type') || 'text/html; charset=utf-8';
     res.setHeader('Content-Type', ct);
 
-    // ✅ Engelleyici başlıkları kaldır
+    // ✅ Kritik: Engelleyici güvenlik başlıklarını temizle ve esnet
     res.removeHeader('X-Frame-Options');
     res.removeHeader('Content-Security-Policy');
     res.removeHeader('X-Content-Type-Options');
     res.setHeader('X-Frame-Options', 'ALLOWALL');
+    res.setHeader('Content-Security-Policy', "frame-ancestors *");
     res.setHeader('Access-Control-Allow-Origin', '*');
 
-    // Binary içerik (resim, js, css) → doğrudan aktar
+    // HTML dışındaki içerikleri (JS, CSS, Resim) doğrudan aktar
     if (!ct.includes('text/html')) {
       response.body.pipe(res);
       return;
@@ -114,18 +104,32 @@ app.get('/proxy', async (req, res) => {
     let body = await response.text();
     const origin = new URL(targetUrl).origin;
 
-    // <base> etiketi ekle
+    // Sayfa içindeki göreli yolların kırılmaması için <base> ekle
     if (body.includes('<head>')) {
       body = body.replace('<head>', `<head><base href="${origin}/">`);
     } else {
       body = `<base href="${origin}/">` + body;
     }
 
-    // Göreli URL'leri mutlak yap
+    // Göreli linkleri mutlak yap
     body = body.replace(/(href|src|action)=["']\/(?!\/)/gi, `$1="${origin}/`);
-
-    // CSP meta etiketlerini kaldır
+    // Meta tag CSP'lerini temizle
     body = body.replace(/<meta[^>]+http-equiv=["']Content-Security-Policy["'][^>]*>/gi, '');
+
+    // ── EKLEME: Zorunlu CSS Enjeksiyonu ──
+    const forceFullScreenCSS = `
+    <style>
+        html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; overflow: auto !important; }
+        iframe, video { max-width: 100% !important; }
+    </style>
+    `;
+
+    if (body.includes('</head>')) {
+      body = body.replace('</head>', forceFullScreenCSS + '</head>');
+    } else {
+      body = forceFullScreenCSS + body;
+    }
+    // ── EKLEME SONU ──
 
     res.send(body);
   } catch (err) {
@@ -175,7 +179,6 @@ wss.on('connection', (ws) => {
     try { msg = JSON.parse(raw); } catch { return; }
 
     switch (msg.type) {
-
       case 'join': {
         const { roomId, nick } = msg;
         if (!rooms[roomId]) {
@@ -207,7 +210,7 @@ wss.on('connection', (ws) => {
       case 'set_url': {
         if (!currentRoom) return;
         const room = rooms[currentRoom];
-        if (room.hostId !== userId) return; // sadece host URL değiştirir
+        if (room.hostId !== userId) return; 
         room.url = msg.url;
         broadcast(currentRoom, { type: 'url_changed', url: msg.url });
         break;
@@ -240,7 +243,6 @@ wss.on('connection', (ws) => {
     const room = rooms[currentRoom];
     delete room.users[userId];
 
-    // If host left, assign new host
     const remaining = Object.keys(room.users);
     if (room.hostId === userId && remaining.length > 0) {
       room.hostId = remaining[0];

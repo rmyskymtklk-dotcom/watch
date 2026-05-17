@@ -20,9 +20,9 @@
   const roomCodeDisp = $('roomCodeDisplay');
   const copyRoomBtn = $('copyRoomBtn');
   const hostControls = $('hostControls');
-  const urlInput    = $('urlInput');
-  const loadBtn     = $('loadBtn');
-  const videoFrame  = $('videoFrame');
+  const urlInput     = $('urlInput');
+  const loadBtn      = $('loadBtn');
+  const videoFrame   = $('videoFrame');
   const placeholder = $('placeholder');
   const frameWarn   = $('frameWarning');
   const openExt     = $('openExternal');
@@ -44,12 +44,20 @@
 
   function formatTime(ts) {
     const d = new Date(ts);
-    return d.getHours().toString().padStart(2,'0') + ':' +
-           d.getMinutes().toString().padStart(2,'0');
+    return d.getHours().toString().padStart(2, '0') + ':' +
+           d.getMinutes().toString().padStart(2, '0');
   }
 
   function getNick() {
     return nickInput.value.trim() || 'Misafir';
+  }
+
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   // ── Lobby actions ────────────────────────────────────────────────
@@ -130,12 +138,11 @@
   // ── Message handler ───────────────────────────────────────────────
   function handleMsg(msg) {
     switch (msg.type) {
-
       case 'joined':
         myUserId = msg.userId;
         setHost(msg.isHost);
         if (msg.url) loadVideo(msg.url);
-        msg.comments.forEach(addComment);
+        if (msg.comments) msg.comments.forEach(addComment);
         break;
 
       case 'you_are_host':
@@ -214,10 +221,10 @@
         videoFrame.onload = () => {
           try {
             const inner = videoFrame.contentDocument || videoFrame.contentWindow?.document;
-            if (!inner || inner.body?.innerHTML?.trim() === '') {
+            if (!inner || (inner.body && inner.body.innerHTML.trim() === '')) {
               frameWarn.classList.remove('hidden');
             }
-          } catch { /* cross-origin, sorun yok */ }
+          } catch { /* cross-origin engeli olabilir, sorun yok */ }
         };
         videoFrame.onerror = () => frameWarn.classList.remove('hidden');
       }
@@ -245,7 +252,9 @@
       const style = document.createElement('style');
       style.textContent = `.spinner{width:36px;height:36px;border:3px solid rgba(232,255,71,0.2);border-top-color:#e8ff47;border-radius:50%;animation:spin 0.8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}`;
       document.head.appendChild(style);
-      document.querySelector('.video-panel').appendChild(ov);
+      
+      const panel = document.querySelector('.video-panel');
+      if (panel) panel.appendChild(ov);
     }
     ov.style.display = show ? 'flex' : 'none';
   }
@@ -286,14 +295,6 @@
     div.textContent = text;
     commentList.appendChild(div);
     commentList.scrollTop = commentList.scrollHeight;
-  }
-
-  function esc(str) {
-    return String(str)
-      .replace(/&/g,'&amp;')
-      .replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;')
-      .replace(/"/g,'&quot;');
   }
 
 })();
